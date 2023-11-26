@@ -10,10 +10,10 @@ contract BasicPerpetualsTest is Test {
     BasicPerpetuals public perpetuals;
 
     ERC20DecimalsMock public usdc;
-    
+
     uint256 public constant USDC_DECIMALS = 6;
     uint256 public constant BTC_DECIMALS = 8;
-    
+
     uint256 public constant ONE_USDC = 1e6;
     uint256 public constant ONE_BTC = 1e8;
 
@@ -63,8 +63,8 @@ contract BasicPerpetualsTest is Test {
         // Random Address
         address liquidityProvider = makeAddr("provider1");
 
-	// Mint 250k USDC to the Random Address
-	usdc.mint(liquidityProvider, 250_000 * (10 ** USDC_DECIMALS));
+        // Mint 250k USDC to the Random Address
+        usdc.mint(liquidityProvider, 250_000 * (10 ** USDC_DECIMALS));
 
         // Retrieve Whale's USDC Balance
         uint256 whaleBalance = usdc.balanceOf(liquidityProvider);
@@ -96,8 +96,8 @@ contract BasicPerpetualsTest is Test {
         // Random Address
         address liquidityProvider = makeAddr("provider1");
 
-	// Mint 250k USDC to the Random Address
-	usdc.mint(liquidityProvider, 250_000 * (10 ** USDC_DECIMALS));
+        // Mint 250k USDC to the Random Address
+        usdc.mint(liquidityProvider, 250_000 * (10 ** USDC_DECIMALS));
 
         // Retrieve Whale's USDC Balance
         uint256 whaleBalance = usdc.balanceOf(liquidityProvider);
@@ -125,5 +125,52 @@ contract BasicPerpetualsTest is Test {
 
         // Asserts Whale balance
         assertEq(whaleBalanceAfter, whaleBalance);
+    }
+
+    function test_CreateLongPosition() public {
+        // Random Address
+        address liquidityProvider = makeAddr("provider1");
+
+        // Amount
+        uint256 amount = 250_000 * (10 ** USDC_DECIMALS);
+
+        // Mint 250k USDC to the Random Address
+        usdc.mint(liquidityProvider, amount);
+
+        // Add Liquidity
+        _addLiquidity(liquidityProvider, amount);
+
+        // Alice Address
+        address alice = makeAddr("alice");
+
+        // Collateral
+        uint256 collateral = 10_000 * (10 ** USDC_DECIMALS);
+
+        // Size
+        uint256 size = 1 * (10 ** BTC_DECIMALS);
+
+        // Mint 10k USDC to Alice
+        usdc.mint(alice, collateral);
+
+        // Alice USDC balance
+        uint256 aliceBalance = usdc.balanceOf(alice);
+
+        // Impersonates Alice
+        vm.startPrank(alice);
+
+        // Approve Protocol to transact Alice's USDC
+        usdc.approve(address(perpetuals), aliceBalance);
+
+        // Create Long Position
+        perpetuals.createPosition(collateral, size, true);
+
+        // Stops impersonating
+        vm.stopPrank();
+
+        // Console
+        console.log("Total Deposits:", perpetuals.totalDeposits());
+        console.log("Total Assets:", perpetuals.totalAssets());
+        console.log("Max Utilization:", perpetuals.maxUtilization());
+        console.log("Total Open Long Interest:", perpetuals.longOpenInterest());
     }
 }
