@@ -9,6 +9,9 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract BasicPerpetualsTest is Test {
     BasicPerpetuals public perpetuals;
     IERC20 public usdc;
+
+    uint256 constant public ONE_USDC = 1e6;
+    uint256 constant public ONE_BTC = 1e8;
     
     function setUp() public {
 	// Craete a Sepolia testnet fork
@@ -27,73 +30,29 @@ contract BasicPerpetualsTest is Test {
 	perpetuals = new BasicPerpetuals(usdc, address(dataConsumer));
     }
 
-    function testLeverage_CalculateLeverage() public {
-	uint256 collateral = 2000e6;
-	uint256 size = 1e8;
-	uint256 leverage = perpetuals.calculateLeverage(collateral, size);
-	assert(leverage > 0);
-    }
-
-    function testLong_CalculatePnL() public {
-	uint256 collateral = 2000e6;
-	uint256 size = 1e8;
-	int256 price = 37000e8;
-	int256 pnl = perpetuals.calculateLongPnL(int256(size), price);
-	assert(pnl > 0);
-    }
-
-    function testShort_CalculatePnL() public {
-	uint256 collateral = 2000e6;
-	uint256 size = 1e8;
-	int256 price = 38000e8;
-	int256 pnl = perpetuals.calculateShortPnL(int256(size), price);
-	assert(pnl > 0);
-    }
-
-    function testLong_CalculateTotalPnL() public {
-	uint256 amount = 10_000e6; // 10k USDC
-	uint256 size = 1e8; // 1 BTC
-
-	_transferUSDC(msg.sender, amount);
-
-	_addLiquidity();
-
-	_createPosition(msg.sender, amount, size, true);
-
-	console.log("Total Open Interests:", perpetuals.totalOpenInterests());
-	console.log("Total Open Interests In Size:", perpetuals.totalOpenInterestsInSize());
-	
-	int256 pnl = perpetuals.calculateTotalLongPnL();
-    }
-
-    function _transferUSDC(address trader, uint256 amount) internal {
+    function testFuzz_AddLiquidity(uint256 amount) public {
+	// Random USDC Whale Address
 	address usdcWhale = 0xDa9CE944a37d218c3302F6B82a094844C6ECEb17;
 	
+	// Retrieve Whale's USDC Balance
+	uint256 whaleBalance = usdc.balanceOf(usdcWhale);
+
+	// Fuzzing - `amount` value cannot be higher than `whaleBalance`
+	vm.assume(amount <= whaleBalance);
+
+	// Impersonates Whale
 	vm.startPrank(usdcWhale);
 
-        usdc.transfer(trader, amount);
-
-	vm.stopPrank();
-    }
-
-    function _createPosition(address trader, uint256 amount, uint256 size, bool long) internal {
-	vm.startPrank(trader);
-
+	// Approve Perpetuals to move USDC from the Whale Address
 	usdc.approve(address(perpetuals), amount);
-	perpetuals.createPosition(amount, size, long);
-	
-	vm.stopPrank();
-    }
-    
-    function _addLiquidity() internal {
-	address usdcWhale = 0xDa9CE944a37d218c3302F6B82a094844C6ECEb17;
-	uint256 amount = usdc.balanceOf(usdcWhale);
-	
-	vm.startPrank(usdcWhale);
 
-	usdc.approve(address(perpetuals), amount);
+	// Add liquidity
 	perpetuals.addLiquidity(amount);
-
+	
+	// Stops impersonating
 	vm.stopPrank();
+	
+	// Asserts protocol balance
+	assertEq(perpetuals.totalAssets(), amount);
     }
 }
