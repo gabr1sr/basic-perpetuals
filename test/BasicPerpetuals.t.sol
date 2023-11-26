@@ -10,110 +10,110 @@ contract BasicPerpetualsTest is Test {
     BasicPerpetuals public perpetuals;
     IERC20 public usdc;
 
-    uint256 constant public ONE_USDC = 1e6;
-    uint256 constant public ONE_BTC = 1e8;
-    
+    uint256 public constant ONE_USDC = 1e6;
+    uint256 public constant ONE_BTC = 1e8;
+
     function setUp() public {
-	// Craete a Sepolia testnet fork
-	vm.createSelectFork("mainnet", 18635030);
+        // Craete a mainnet fork
+        vm.createSelectFork("mainnet", 18635030);
 
-	// BTC/USD Price Feed Address
-	address priceFeedAddress = 0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c;
+        // BTC/USD Price Feed Address
+        address priceFeedAddress = 0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c;
 
-	// Data Consumer for Price Feed Address
-	DataConsumerV3 dataConsumer = new DataConsumerV3(priceFeedAddress);
+        // Data Consumer for Price Feed Address
+        DataConsumerV3 dataConsumer = new DataConsumerV3(priceFeedAddress);
 
-	// USDC
-	usdc = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+        // USDC
+        usdc = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
 
-	// Perpetuals
-	perpetuals = new BasicPerpetuals(usdc, address(dataConsumer));
+        // Perpetuals
+        perpetuals = new BasicPerpetuals(usdc, address(dataConsumer));
     }
 
     function _addLiquidity(address from, uint256 amount) private {
-       	// Impersonates `from` address
-	vm.startPrank(from);
+        // Impersonates `from` address
+        vm.startPrank(from);
 
-	// Approve Perpetuals to move USDC from the `from` address
-	usdc.approve(address(perpetuals), amount);
+        // Approve Perpetuals to move USDC from the `from` address
+        usdc.approve(address(perpetuals), amount);
 
-	// Add liquidity
-	perpetuals.addLiquidity(amount);
-	
-	// Stops impersonating
-	vm.stopPrank();
+        // Add liquidity
+        perpetuals.addLiquidity(amount);
+
+        // Stops impersonating
+        vm.stopPrank();
     }
 
     function _removeLiquidity(address from, uint256 amount) private {
-	// Impersonates `from` address
-	vm.startPrank(from);
+        // Impersonates `from` address
+        vm.startPrank(from);
 
-	// Remove Liquidity
-	perpetuals.removeLiquidity(amount);
+        // Remove Liquidity
+        perpetuals.removeLiquidity(amount);
 
-	// Stops impersonating
-	vm.stopPrank();
+        // Stops impersonating
+        vm.stopPrank();
     }
 
     function testFuzz_AddLiquidity(uint256 amount) public {
-	// Random USDC Whale Address
-	address usdcWhale = 0xDa9CE944a37d218c3302F6B82a094844C6ECEb17;
-	
-	// Retrieve Whale's USDC Balance
-	uint256 whaleBalance = usdc.balanceOf(usdcWhale);
+        // Random USDC Whale Address
+        address usdcWhale = 0xDa9CE944a37d218c3302F6B82a094844C6ECEb17;
 
-	// Fuzzing - `amount` value cannot be higher than `whaleBalance`
-	vm.assume(amount <= whaleBalance);
+        // Retrieve Whale's USDC Balance
+        uint256 whaleBalance = usdc.balanceOf(usdcWhale);
 
-	// Protocol balance before
-	uint256 balanceBefore = perpetuals.totalAssets();
+        // Fuzzing - `amount` value cannot be higher than `whaleBalance`
+        vm.assume(amount <= whaleBalance);
 
-	// Add Liquidity
-	_addLiquidity(usdcWhale, amount);
-	
-	// Whale balance after
-	uint256 whaleBalanceAfter = usdc.balanceOf(usdcWhale);
-	
-	// Protocol balance after
-	uint256 balanceAfter = perpetuals.totalAssets();
-	
-	// Asserts Protocol balance
-	assertGe(balanceAfter, balanceBefore);
-	assertEq(balanceAfter, amount);
+        // Protocol balance before
+        uint256 balanceBefore = perpetuals.totalAssets();
 
-	// Asserts Whale balance
-	assertGe(whaleBalance, whaleBalanceAfter);
+        // Add Liquidity
+        _addLiquidity(usdcWhale, amount);
+
+        // Whale balance after
+        uint256 whaleBalanceAfter = usdc.balanceOf(usdcWhale);
+
+        // Protocol balance after
+        uint256 balanceAfter = perpetuals.totalAssets();
+
+        // Asserts Protocol balance
+        assertGe(balanceAfter, balanceBefore);
+        assertEq(balanceAfter, amount);
+
+        // Asserts Whale balance
+        assertGe(whaleBalance, whaleBalanceAfter);
     }
 
     function testFuzz_RemoveLiquidity(uint256 amount) public {
-	// Random USDC Whale Address
-	address usdcWhale = 0xDa9CE944a37d218c3302F6B82a094844C6ECEb17;
-	
-	// Retrieve Whale's USDC Balance
-	uint256 whaleBalance = usdc.balanceOf(usdcWhale);
+        // Random USDC Whale Address
+        address usdcWhale = 0xDa9CE944a37d218c3302F6B82a094844C6ECEb17;
 
-	// Fuzzing - `amount` value cannot be higher than `whaleBalance`
-	vm.assume(amount <= whaleBalance);
+        // Retrieve Whale's USDC Balance
+        uint256 whaleBalance = usdc.balanceOf(usdcWhale);
 
-	// Protocol balance before
-	uint256 balanceBefore = perpetuals.totalAssets();
-	
-	// Add Liquidity
-	_addLiquidity(usdcWhale, amount);
+        // Fuzzing - `amount` value cannot be higher than `whaleBalance`
+        vm.assume(amount <= whaleBalance);
 
-	// Remove Liquidity
-	_removeLiquidity(usdcWhale, amount);
+        // Protocol balance before
+        uint256 balanceBefore = perpetuals.totalAssets();
 
-	// Whale balance after
-	uint256 whaleBalanceAfter = usdc.balanceOf(usdcWhale);
-	
-	// Protocol balance after
-	uint256 balanceAfter = perpetuals.totalAssets();
+        // Add Liquidity
+        _addLiquidity(usdcWhale, amount);
 
-	// Asserts Protocol balance
-	assertEq(balanceBefore, balanceAfter);
+        // Remove Liquidity
+        _removeLiquidity(usdcWhale, amount);
 
-	// Asserts Whale balance
-	assertEq(whaleBalanceAfter, whaleBalance);
+        // Whale balance after
+        uint256 whaleBalanceAfter = usdc.balanceOf(usdcWhale);
+
+        // Protocol balance after
+        uint256 balanceAfter = perpetuals.totalAssets();
+
+        // Asserts Protocol balance
+        assertEq(balanceBefore, balanceAfter);
+
+        // Asserts Whale balance
+        assertEq(whaleBalanceAfter, whaleBalance);
     }
 }

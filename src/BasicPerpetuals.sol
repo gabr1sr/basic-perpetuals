@@ -9,17 +9,20 @@ import {DataConsumerV3} from "./DataConsumerV3.sol";
 contract BasicPerpetuals is ERC4626 {
     using SafeERC20 for IERC20;
 
-    IERC20 immutable private _asset;
-    
-    DataConsumerV3 immutable private _dataConsumer;
+    IERC20 private immutable _asset;
 
-    constructor(IERC20 _assetInstance, address _dataConsumerAddress) ERC4626(_assetInstance) ERC20("Basic: USDC to BTC", "bUSDCBTC") {
-	_asset = _assetInstance;
-	_dataConsumer = DataConsumerV3(_dataConsumerAddress);
+    DataConsumerV3 private immutable _dataConsumer;
+
+    constructor(IERC20 _assetInstance, address _dataConsumerAddress)
+        ERC4626(_assetInstance)
+        ERC20("Basic: USDC to BTC", "bUSDCBTC")
+    {
+        _asset = _assetInstance;
+        _dataConsumer = DataConsumerV3(_dataConsumerAddress);
     }
 
     function addLiquidity(uint256 amount) public {
-	deposit(amount, msg.sender);
+        deposit(amount, msg.sender);
     }
 
     function removeLiquidity(uint256 amount) public {
