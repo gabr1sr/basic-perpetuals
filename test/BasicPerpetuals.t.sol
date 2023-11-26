@@ -30,6 +30,31 @@ contract BasicPerpetualsTest is Test {
 	perpetuals = new BasicPerpetuals(usdc, address(dataConsumer));
     }
 
+    function _addLiquidity(address from, uint256 amount) private {
+       	// Impersonates `from` address
+	vm.startPrank(from);
+
+	// Approve Perpetuals to move USDC from the `from` address
+	usdc.approve(address(perpetuals), amount);
+
+	// Add liquidity
+	perpetuals.addLiquidity(amount);
+	
+	// Stops impersonating
+	vm.stopPrank();
+    }
+
+    function _removeLiquidity(address from, uint256 amount) private {
+	// Impersonates `from` address
+	vm.startPrank(from);
+
+	// Remove Liquidity
+	perpetuals.removeLiquidity(amount);
+
+	// Stops impersonating
+	vm.stopPrank();
+    }
+
     function testFuzz_AddLiquidity(uint256 amount) public {
 	// Random USDC Whale Address
 	address usdcWhale = 0xDa9CE944a37d218c3302F6B82a094844C6ECEb17;
@@ -40,19 +65,55 @@ contract BasicPerpetualsTest is Test {
 	// Fuzzing - `amount` value cannot be higher than `whaleBalance`
 	vm.assume(amount <= whaleBalance);
 
-	// Impersonates Whale
-	vm.startPrank(usdcWhale);
+	// Protocol balance before
+	uint256 balanceBefore = perpetuals.totalAssets();
 
-	// Approve Perpetuals to move USDC from the Whale Address
-	usdc.approve(address(perpetuals), amount);
+	// Add Liquidity
+	_addLiquidity(usdcWhale, amount);
+	
+	// Whale balance after
+	uint256 whaleBalanceAfter = usdc.balanceOf(usdcWhale);
+	
+	// Protocol balance after
+	uint256 balanceAfter = perpetuals.totalAssets();
+	
+	// Asserts Protocol balance
+	assertGe(balanceAfter, balanceBefore);
+	assertEq(balanceAfter, amount);
 
-	// Add liquidity
-	perpetuals.addLiquidity(amount);
+	// Asserts Whale balance
+	assertGe(whaleBalance, whaleBalanceAfter);
+    }
+
+    function testFuzz_RemoveLiquidity(uint256 amount) public {
+	// Random USDC Whale Address
+	address usdcWhale = 0xDa9CE944a37d218c3302F6B82a094844C6ECEb17;
 	
-	// Stops impersonating
-	vm.stopPrank();
+	// Retrieve Whale's USDC Balance
+	uint256 whaleBalance = usdc.balanceOf(usdcWhale);
+
+	// Fuzzing - `amount` value cannot be higher than `whaleBalance`
+	vm.assume(amount <= whaleBalance);
+
+	// Protocol balance before
+	uint256 balanceBefore = perpetuals.totalAssets();
 	
-	// Asserts protocol balance
-	assertEq(perpetuals.totalAssets(), amount);
+	// Add Liquidity
+	_addLiquidity(usdcWhale, amount);
+
+	// Remove Liquidity
+	_removeLiquidity(usdcWhale, amount);
+
+	// Whale balance after
+	uint256 whaleBalanceAfter = usdc.balanceOf(usdcWhale);
+	
+	// Protocol balance after
+	uint256 balanceAfter = perpetuals.totalAssets();
+
+	// Asserts Protocol balance
+	assertEq(balanceBefore, balanceAfter);
+
+	// Asserts Whale balance
+	assertEq(whaleBalanceAfter, whaleBalance);
     }
 }

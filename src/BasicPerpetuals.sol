@@ -21,4 +21,8 @@ contract BasicPerpetuals is ERC4626 {
     function addLiquidity(uint256 amount) public {
 	deposit(amount, msg.sender);
     }
+
+    function removeLiquidity(uint256 amount) public {
+        withdraw(amount, msg.sender, msg.sender);
+    }
 }
