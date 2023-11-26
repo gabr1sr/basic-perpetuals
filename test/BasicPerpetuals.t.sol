@@ -167,6 +167,12 @@ contract BasicPerpetualsTest is Test {
         // Stops impersonating
         vm.stopPrank();
 
+	// Asserts
+	assertLe(perpetuals.calculateLeverage(collateral, size), perpetuals.MAX_LEVERAGE());
+	assertEq(perpetuals.longDeposits(), collateral);
+	assertEq(perpetuals.longOpenInterestInTokens(), size);
+	assertEq(usdc.balanceOf(alice), 0);
+	
         // Console
         console.log("Total Deposits:", perpetuals.totalDeposits());
         console.log("Total Assets:", perpetuals.totalAssets());

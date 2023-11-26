@@ -82,7 +82,13 @@ contract BasicPerpetuals is ERC4626 {
         return longOpenInterestPrice;
     }
 
-    function calculateLeverage(uint256 collateral, uint256 sizePrice) public view returns (uint256) {
+    function calculateLeverage(uint256 collateral, uint256 size) public view returns (uint256) {
+	uint256 price = uint256(_dataConsumer.getChainlinkDataFeedLatestAnswer()) / (10 ** FEED_DECIMALS);
+	uint256 sizePrice = price * (size / (10 ** BTC_DECIMALS));
+	return sizePrice / (collateral / (10 ** USDC_DECIMALS));
+    }
+    
+    function _calculateLeverageWithPrice(uint256 collateral, uint256 sizePrice) internal view returns (uint256) {
         return sizePrice / (collateral / (10 ** USDC_DECIMALS));
     }
 
@@ -95,7 +101,7 @@ contract BasicPerpetuals is ERC4626 {
 
         uint256 entryPrice = uint256(_dataConsumer.getChainlinkDataFeedLatestAnswer());
         uint256 sizePrice = (entryPrice / (10 ** FEED_DECIMALS)) * (size / (10 ** BTC_DECIMALS));
-        uint256 leverage = calculateLeverage(collateral, sizePrice);
+        uint256 leverage = _calculateLeverageWithPrice(collateral, sizePrice);
         require(leverage <= MAX_LEVERAGE, "Leverage cannot exceed 15x");
 
         uint256 futureTotalOpenInterest = totalOpenInterest() + sizePrice;
