@@ -4,12 +4,16 @@ pragma solidity 0.8.23;
 import {Test, console} from "forge-std/Test.sol";
 import {BasicPerpetuals} from "../src/BasicPerpetuals.sol";
 import {DataConsumerV3} from "../src/DataConsumerV3.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ERC20DecimalsMock} from "./utils/ERC20DecimalsMock.sol";
 
 contract BasicPerpetualsTest is Test {
     BasicPerpetuals public perpetuals;
-    IERC20 public usdc;
 
+    ERC20DecimalsMock public usdc;
+    
+    uint256 public constant USDC_DECIMALS = 6;
+    uint256 public constant BTC_DECIMALS = 8;
+    
     uint256 public constant ONE_USDC = 1e6;
     uint256 public constant ONE_BTC = 1e8;
 
@@ -24,7 +28,7 @@ contract BasicPerpetualsTest is Test {
         DataConsumerV3 dataConsumer = new DataConsumerV3(priceFeedAddress);
 
         // USDC
-        usdc = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+        usdc = new ERC20DecimalsMock(uint8(USDC_DECIMALS));
 
         // Perpetuals
         perpetuals = new BasicPerpetuals(usdc, address(dataConsumer));
@@ -56,11 +60,14 @@ contract BasicPerpetualsTest is Test {
     }
 
     function testFuzz_AddLiquidity(uint256 amount) public {
-        // Random USDC Whale Address
-        address usdcWhale = 0xDa9CE944a37d218c3302F6B82a094844C6ECEb17;
+        // Random Address
+        address liquidityProvider = makeAddr("provider1");
+
+	// Mint 250k USDC to the Random Address
+	usdc.mint(liquidityProvider, 250_000 * (10 ** USDC_DECIMALS));
 
         // Retrieve Whale's USDC Balance
-        uint256 whaleBalance = usdc.balanceOf(usdcWhale);
+        uint256 whaleBalance = usdc.balanceOf(liquidityProvider);
 
         // Fuzzing - `amount` value cannot be higher than `whaleBalance`
         vm.assume(amount <= whaleBalance);
@@ -69,10 +76,10 @@ contract BasicPerpetualsTest is Test {
         uint256 balanceBefore = perpetuals.totalAssets();
 
         // Add Liquidity
-        _addLiquidity(usdcWhale, amount);
+        _addLiquidity(liquidityProvider, amount);
 
         // Whale balance after
-        uint256 whaleBalanceAfter = usdc.balanceOf(usdcWhale);
+        uint256 whaleBalanceAfter = usdc.balanceOf(liquidityProvider);
 
         // Protocol balance after
         uint256 balanceAfter = perpetuals.totalAssets();
@@ -86,11 +93,14 @@ contract BasicPerpetualsTest is Test {
     }
 
     function testFuzz_RemoveLiquidity(uint256 amount) public {
-        // Random USDC Whale Address
-        address usdcWhale = 0xDa9CE944a37d218c3302F6B82a094844C6ECEb17;
+        // Random Address
+        address liquidityProvider = makeAddr("provider1");
+
+	// Mint 250k USDC to the Random Address
+	usdc.mint(liquidityProvider, 250_000 * (10 ** USDC_DECIMALS));
 
         // Retrieve Whale's USDC Balance
-        uint256 whaleBalance = usdc.balanceOf(usdcWhale);
+        uint256 whaleBalance = usdc.balanceOf(liquidityProvider);
 
         // Fuzzing - `amount` value cannot be higher than `whaleBalance`
         vm.assume(amount <= whaleBalance);
@@ -99,13 +109,13 @@ contract BasicPerpetualsTest is Test {
         uint256 balanceBefore = perpetuals.totalAssets();
 
         // Add Liquidity
-        _addLiquidity(usdcWhale, amount);
+        _addLiquidity(liquidityProvider, amount);
 
         // Remove Liquidity
-        _removeLiquidity(usdcWhale, amount);
+        _removeLiquidity(liquidityProvider, amount);
 
         // Whale balance after
-        uint256 whaleBalanceAfter = usdc.balanceOf(usdcWhale);
+        uint256 whaleBalanceAfter = usdc.balanceOf(liquidityProvider);
 
         // Protocol balance after
         uint256 balanceAfter = perpetuals.totalAssets();

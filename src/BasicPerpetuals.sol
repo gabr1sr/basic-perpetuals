@@ -13,6 +13,10 @@ contract BasicPerpetuals is ERC4626 {
 
     DataConsumerV3 private immutable _dataConsumer;
 
+    uint256 public constant USDC_DECIMALS = 6;
+    uint256 public constant BTC_DECIMALS = 8;
+    uint256 public constant FEED_DECIMALS = 8;
+
     constructor(IERC20 _assetInstance, address _dataConsumerAddress)
         ERC4626(_assetInstance)
         ERC20("Basic: USDC to BTC", "bUSDCBTC")
@@ -27,5 +31,11 @@ contract BasicPerpetuals is ERC4626 {
 
     function removeLiquidity(uint256 amount) public {
         withdraw(amount, msg.sender, msg.sender);
+    }
+
+    function calculateLeverage(uint256 collateral, uint256 size) public view returns (uint256) {
+	uint256 price = uint256(_dataConsumer.getChainlinkDataFeedLatestAnswer()) / (10 ** FEED_DECIMALS);
+	uint256 sizePrice = (size * price) / (10 ** BTC_DECIMALS);
+	return (sizePrice * collateral) / (10 ** USDC_DECIMALS);
     }
 }
