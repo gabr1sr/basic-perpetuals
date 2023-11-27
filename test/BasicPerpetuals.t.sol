@@ -59,6 +59,20 @@ contract BasicPerpetualsTest is Test {
         vm.stopPrank();
     }
 
+    function _createPosition(address to, uint256 collateral, uint256 size, bool long) private {
+	// Impersonates `to` address
+	vm.startPrank(to);
+
+	// Approve Perpetuals to move USDC from the `to` address
+	usdc.approve(address(perpetuals), collateral);
+
+	// Create a new position
+	perpetuals.createPosition(collateral, size, long);
+	
+	// Stops impersonating
+	vm.stopPrank();
+    }
+
     function testFuzz_AddLiquidity(uint256 amount) public {
         // Random Address
         address liquidityProvider = makeAddr("provider1");
@@ -152,31 +166,71 @@ contract BasicPerpetualsTest is Test {
         // Mint 10k USDC to Alice
         usdc.mint(alice, collateral);
 
-        // Alice USDC balance
-        uint256 aliceBalance = usdc.balanceOf(alice);
-
-        // Impersonates Alice
-        vm.startPrank(alice);
-
-        // Approve Protocol to transact Alice's USDC
-        usdc.approve(address(perpetuals), aliceBalance);
-
         // Create Long Position
-        perpetuals.createPosition(collateral, size, true);
-
-        // Stops impersonating
-        vm.stopPrank();
+        _createPosition(alice, collateral, size, true);
 
 	// Asserts
 	assertLe(perpetuals.calculateLeverage(collateral, size), perpetuals.MAX_LEVERAGE());
 	assertEq(perpetuals.longDeposits(), collateral);
 	assertEq(perpetuals.longOpenInterestInTokens(), size);
+	assertEq(perpetuals.collateralOf(alice), collateral);
 	assertEq(usdc.balanceOf(alice), 0);
+    }
+
+    function test_IncreaseCollateral() public {
+	// Random Address
+        address liquidityProvider = makeAddr("provider1");
+
+        // Amount
+        uint256 amount = 250_000 * (10 ** USDC_DECIMALS);
+
+        // Mint 250k USDC to the Random Address
+        usdc.mint(liquidityProvider, amount);
+
+        // Add Liquidity
+        _addLiquidity(liquidityProvider, amount);
+
+        // Alice Address
+        address alice = makeAddr("alice");
+
+        // Collateral
+        uint256 collateral = 10_000 * (10 ** USDC_DECIMALS);
+
+        // Size
+        uint256 size = 1 * (10 ** BTC_DECIMALS);
+
+        // Mint 10k USDC to Alice
+        usdc.mint(alice, collateral);
+
+        // Create Long Position
+        _createPosition(alice, collateral, size, true);
+
+	// Amount to increase
+	uint256 increaseAmount = 5_000 * (10 ** USDC_DECIMALS);
+
+	// Mint 5k USDC to Alice
+	usdc.mint(alice, increaseAmount);
+
+	// Impersonates Alice
+	vm.startPrank(alice);
+
+	// Allow protocol to transfer 5k USDC from Alice
+	usdc.approve(address(perpetuals), increaseAmount);
 	
-        // Console
-        console.log("Total Deposits:", perpetuals.totalDeposits());
-        console.log("Total Assets:", perpetuals.totalAssets());
-        console.log("Max Utilization:", perpetuals.maxUtilization());
-        console.log("Total Open Long Interest:", perpetuals.longOpenInterest());
+	// Increase 5k USDC of collateral
+	perpetuals.increaseCollateral(increaseAmount);
+
+	// Stops impersonating
+	vm.stopPrank();
+
+	// Total collateral
+	uint256 totalCollateral = collateral + increaseAmount;
+	
+	// Asserts
+	assertLe(perpetuals.calculateLeverage(totalCollateral, size), perpetuals.MAX_LEVERAGE());
+	assertEq(perpetuals.longDeposits(), totalCollateral);
+	assertEq(perpetuals.longOpenInterestInTokens(), size);
+	assertEq(perpetuals.collateralOf(alice), totalCollateral);
+	assertEq(usdc.balanceOf(alice), 0);
     }
 }

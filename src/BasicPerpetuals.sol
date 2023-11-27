@@ -88,7 +88,7 @@ contract BasicPerpetuals is ERC4626 {
 	return sizePrice / (collateral / (10 ** USDC_DECIMALS));
     }
     
-    function _calculateLeverageWithPrice(uint256 collateral, uint256 sizePrice) internal view returns (uint256) {
+    function _calculateLeverageWithPrice(uint256 collateral, uint256 sizePrice) internal pure returns (uint256) {
         return sizePrice / (collateral / (10 ** USDC_DECIMALS));
     }
 
@@ -119,5 +119,28 @@ contract BasicPerpetuals is ERC4626 {
 
         positions[msg.sender] = position;
         _asset.safeTransferFrom(msg.sender, address(this), collateral);
+    }
+
+    function increaseCollateral(uint256 valueToIncrease) external {
+	require(_asset.balanceOf(msg.sender) >= valueToIncrease, "Insufficient asset balance");
+
+	Position storage position = positions[msg.sender];
+	position.collateral += valueToIncrease;
+
+	uint256 newLeverage = calculateLeverage(position.collateral, position.size);
+	require(newLeverage <= MAX_LEVERAGE, "Leverage cannot exceed 15x");
+
+	if (position.long) {
+	    longDeposits += valueToIncrease;
+	} else {
+	    shortDeposits += valueToIncrease;
+	}
+
+	_asset.safeTransferFrom(msg.sender, address(this), valueToIncrease);
+    }
+
+    function collateralOf(address target) external view returns (uint256) {
+	Position memory position = positions[target];
+	return position.collateral;
     }
 }
