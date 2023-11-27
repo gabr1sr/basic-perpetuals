@@ -139,6 +139,25 @@ contract BasicPerpetuals is ERC4626 {
 	_asset.safeTransferFrom(msg.sender, address(this), valueToIncrease);
     }
 
+    function decreaseCollateral(uint256 value) external {
+	require(totalAssets() >= value, "Insufficient liquidity");
+
+	Position storage position = positions[msg.sender];
+	require(value <= position.collateral, "Cannot decrease more than collateral");
+
+	position.collateral -= value;
+	uint256 newLeverage = calculateLeverage(position.collateral, position.size);
+	require(newLeverage <= MAX_LEVERAGE, "Leverage cannot exceed 15x");
+
+	if (position.long) {
+	    longDeposits -= value;
+	} else {
+	    shortDeposits -= value;
+	}
+
+	_asset.safeTransfer(msg.sender, value);
+    }
+
     function collateralOf(address target) external view returns (uint256) {
 	Position memory position = positions[target];
 	return position.collateral;

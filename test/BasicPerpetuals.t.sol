@@ -233,4 +233,55 @@ contract BasicPerpetualsTest is Test {
 	assertEq(perpetuals.collateralOf(alice), totalCollateral);
 	assertEq(usdc.balanceOf(alice), 0);
     }
+
+    function test_DecreaseCollateral() public {
+	// Random Address
+        address liquidityProvider = makeAddr("provider1");
+
+        // Amount
+        uint256 amount = 250_000 * (10 ** USDC_DECIMALS);
+
+        // Mint 250k USDC to the Random Address
+        usdc.mint(liquidityProvider, amount);
+
+        // Add Liquidity
+        _addLiquidity(liquidityProvider, amount);
+
+        // Alice Address
+        address alice = makeAddr("alice");
+
+        // Collateral
+        uint256 collateral = 10_000 * (10 ** USDC_DECIMALS);
+
+        // Size
+        uint256 size = 1 * (10 ** BTC_DECIMALS);
+
+        // Mint 10k USDC to Alice
+        usdc.mint(alice, collateral);
+
+        // Create Long Position
+        _createPosition(alice, collateral, size, true);
+
+	// Amount to decrease
+	uint256 decreaseAmount = 2_500 * (10 ** USDC_DECIMALS);
+
+	// Impersonates Alice
+	vm.startPrank(alice);
+	
+	// Increase 5k USDC of collateral
+	perpetuals.decreaseCollateral(decreaseAmount);
+
+	// Stops impersonating
+	vm.stopPrank();
+
+	// Total collateral
+	uint256 totalCollateral = collateral - decreaseAmount;
+	
+	// Asserts
+	assertLe(perpetuals.calculateLeverage(totalCollateral, size), perpetuals.MAX_LEVERAGE());
+	assertEq(perpetuals.longDeposits(), totalCollateral);
+	assertEq(perpetuals.longOpenInterestInTokens(), size);
+	assertEq(perpetuals.collateralOf(alice), totalCollateral);
+	assertEq(usdc.balanceOf(alice), decreaseAmount);
+    }
 }
