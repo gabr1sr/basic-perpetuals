@@ -217,6 +217,8 @@ contract BasicPerpetuals is ERC4626 {
         delete positions[msg.sender];
     }
 
+    // Collateral
+
     function increaseCollateral(uint256 valueToIncrease) external {
         require(_asset.balanceOf(msg.sender) >= valueToIncrease, "Insufficient asset balance");
 
@@ -257,5 +259,40 @@ contract BasicPerpetuals is ERC4626 {
     function collateralOf(address target) external view returns (uint256) {
         Position memory position = positions[target];
         return position.collateral;
+    }
+
+    // Size
+
+    function increaseSize(uint256 increaseAmount) public {
+	Position storage position = positions[msg.sender];
+	position.size += increaseAmount;
+
+	uint256 entryPrice = uint256(_dataConsumer.getChainlinkDataFeedLatestAnswer());
+        uint256 sizePrice = (entryPrice / (10 ** FEED_DECIMALS)) * (position.size / (10 ** BTC_DECIMALS));
+	uint256 newLeverage = _calculateLeverageWithPrice(position.collateral, sizePrice);
+	require(newLeverage <= MAX_LEVERAGE, "Leverage cannot exceed 15x");
+
+	if (position.long) {
+	    longOpenInterestInTokens += increaseAmount;
+	} else {
+	    shortOpenInterestInTokens += increaseAmount;
+	}
+    }
+
+    function decreaseSize(uint256 decreaseAmount) public {
+	Position storage position = positions[msg.sender];
+	require(decreaseAmount < position.size, "Cannot decrease more than position size");
+	position.size -= decreaseAmount;
+
+	uint256 entryPrice = uint256(_dataConsumer.getChainlinkDataFeedLatestAnswer());
+        uint256 sizePrice = (entryPrice / (10 ** FEED_DECIMALS)) * (position.size / (10 ** BTC_DECIMALS));
+	uint256 newLeverage = _calculateLeverageWithPrice(position.collateral, sizePrice);
+	require(newLeverage <= MAX_LEVERAGE, "Leverage cannot exceed 15x");
+
+	if (position.long) {
+	    longOpenInterestInTokens -= decreaseAmount;
+	} else {
+	    shortOpenInterestInTokens -= decreaseAmount;
+	}
     }
 }
