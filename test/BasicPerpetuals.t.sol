@@ -13,6 +13,7 @@ contract BasicPerpetualsTest is Test {
 
     uint256 public constant USDC_DECIMALS = 6;
     uint256 public constant BTC_DECIMALS = 8;
+    uint256 public constant FEED_DECIMALS = 8;
 
     uint256 public constant ONE_USDC = 1e6;
     uint256 public constant ONE_BTC = 1e8;
@@ -283,5 +284,22 @@ contract BasicPerpetualsTest is Test {
 	assertEq(perpetuals.longOpenInterestInTokens(), size);
 	assertEq(perpetuals.collateralOf(alice), totalCollateral);
 	assertEq(usdc.balanceOf(alice), decreaseAmount);
+    }
+
+    function testFuzz_CalculateLongPnL(uint256 sizeInTokens) public {
+	// Cap `sizeInTokens` limit to the first counterexample overflow
+	vm.assume(sizeInTokens < 176904378841589733741797831619250);
+	
+	// Long Position Entry Price
+	uint256 entryPrice = 37_000 * (10 ** FEED_DECIMALS);
+
+	// Long Position Size
+	uint256 size = sizeInTokens * (10 ** BTC_DECIMALS);
+
+	// Long Position PnL
+        (, uint256 pnl) = perpetuals.calculateLongPnL(size, entryPrice);
+
+	// Assertions
+	assertGe(pnl, 0);
     }
 }

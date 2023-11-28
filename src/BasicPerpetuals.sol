@@ -92,6 +92,20 @@ contract BasicPerpetuals is ERC4626 {
         return sizePrice / (collateral / (10 ** USDC_DECIMALS));
     }
 
+    // PnL
+
+    function calculateLongPnL(uint256 size, uint256 entryPrice) public view returns (bool, uint256) {
+	uint256 currentPrice = uint256(_dataConsumer.getChainlinkDataFeedLatestAnswer()) / (10 ** FEED_DECIMALS);
+	uint256 sizePrice = (entryPrice / (10 ** FEED_DECIMALS)) * (size / (10 ** BTC_DECIMALS));
+	bool isPositive = currentPrice > sizePrice;
+
+	if (isPositive) {
+	    return (isPositive, (currentPrice - sizePrice) * size);
+	}
+
+	return (isPositive, (sizePrice - currentPrice) * size);
+    }
+
     // Positions
 
     function createPosition(uint256 collateral, uint256 size, bool long) external {
