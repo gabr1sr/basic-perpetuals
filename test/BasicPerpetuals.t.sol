@@ -302,4 +302,21 @@ contract BasicPerpetualsTest is Test {
 	// Assertions
 	assertGe(pnl, 0);
     }
+
+    function testFuzz_CalculateShortPnL(uint256 sizeInTokens) public {
+	// Cap `sizeInTokens` limit to the first counterexample overflow
+	vm.assume(sizeInTokens < 176904378841589733741797831619250);
+	
+	// Short Position Entry Price
+	uint256 entryPrice = 37_000 * (10 ** FEED_DECIMALS);
+
+	// Short Position Size
+	uint256 size = sizeInTokens * (10 ** BTC_DECIMALS);
+
+	// Short Position PnL
+        (, uint256 pnl) = perpetuals.calculateShortPnL(size, entryPrice);
+
+	// Assertions
+	assertGe(pnl, 0);
+    }
 }
