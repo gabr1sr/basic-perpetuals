@@ -83,11 +83,11 @@ contract BasicPerpetuals is ERC4626 {
     }
 
     function calculateLeverage(uint256 collateral, uint256 size) public view returns (uint256) {
-	uint256 price = uint256(_dataConsumer.getChainlinkDataFeedLatestAnswer()) / (10 ** FEED_DECIMALS);
-	uint256 sizePrice = price * (size / (10 ** BTC_DECIMALS));
-	return sizePrice / (collateral / (10 ** USDC_DECIMALS));
+        uint256 price = uint256(_dataConsumer.getChainlinkDataFeedLatestAnswer()) / (10 ** FEED_DECIMALS);
+        uint256 sizePrice = price * (size / (10 ** BTC_DECIMALS));
+        return sizePrice / (collateral / (10 ** USDC_DECIMALS));
     }
-    
+
     function _calculateLeverageWithPrice(uint256 collateral, uint256 sizePrice) internal pure returns (uint256) {
         return sizePrice / (collateral / (10 ** USDC_DECIMALS));
     }
@@ -95,27 +95,34 @@ contract BasicPerpetuals is ERC4626 {
     // PnL
 
     function calculateLongPnL(uint256 size, uint256 entryPrice) public view returns (bool, uint256) {
-	uint256 currentPrice = uint256(_dataConsumer.getChainlinkDataFeedLatestAnswer()) / (10 ** FEED_DECIMALS);
-	uint256 sizePrice = (entryPrice / (10 ** FEED_DECIMALS)) * (size / (10 ** BTC_DECIMALS));
-	bool isPositive = currentPrice > sizePrice;
+        uint256 currentPrice = uint256(_dataConsumer.getChainlinkDataFeedLatestAnswer()) / (10 ** FEED_DECIMALS);
+        uint256 sizePrice = (entryPrice / (10 ** FEED_DECIMALS)) * (size / (10 ** BTC_DECIMALS));
+        bool isPositive = currentPrice > sizePrice;
 
-	if (isPositive) {
-	    return (isPositive, (currentPrice - sizePrice) * size);
-	}
+        if (isPositive) {
+            return (isPositive, (currentPrice - sizePrice) * size);
+        }
 
-	return (isPositive, (sizePrice - currentPrice) * size);
+        return (isPositive, (sizePrice - currentPrice) * size);
     }
 
     function calculateShortPnL(uint256 size, uint256 entryPrice) public view returns (bool, uint256) {
-	uint256 currentPrice = uint256(_dataConsumer.getChainlinkDataFeedLatestAnswer()) / (10 ** FEED_DECIMALS);
-	uint256 sizePrice = (entryPrice / (10 ** FEED_DECIMALS)) * (size / (10 ** BTC_DECIMALS));
-	bool isPositive = currentPrice < sizePrice;
+        uint256 currentPrice = uint256(_dataConsumer.getChainlinkDataFeedLatestAnswer()) / (10 ** FEED_DECIMALS);
+        uint256 sizePrice = (entryPrice / (10 ** FEED_DECIMALS)) * (size / (10 ** BTC_DECIMALS));
+        bool isPositive = currentPrice < sizePrice;
 
-	if (isPositive) {
-	    return (isPositive, (sizePrice - currentPrice) * size);
-	}
+        if (isPositive) {
+            return (isPositive, (sizePrice - currentPrice) * size);
+        }
 
-	return (isPositive, (currentPrice - sizePrice) * size);
+        return (isPositive, (currentPrice - sizePrice) * size);
+    }
+
+    function calculateMyPnL() public view returns (bool, uint256) {
+        Position memory position = positions[msg.sender];
+        return position.long
+            ? calculateLongPnL(position.size, position.entryPrice)
+            : calculateShortPnL(position.size, position.entryPrice);
     }
 
     // Positions
@@ -147,45 +154,108 @@ contract BasicPerpetuals is ERC4626 {
         _asset.safeTransferFrom(msg.sender, address(this), collateral);
     }
 
+    function closePosition() external {
+        Position storage position = positions[msg.sender];
+        (bool positive, uint256 pnlValue) = position.long
+            ? calculateLongPnL(position.size, position.entryPrice)
+            : calculateShortPnL(position.size, position.entryPrice);
+
+        uint256 pnl = pnlValue / (10 ** (FEED_DECIMALS - USDC_DECIMALS));
+
+        if (positive) {
+            uint256 pendingValue = position.collateral + pnl;
+            require(maxUtilization() >= pendingValue, "After-withdraw liquidity cannot exceed max utilization");
+
+            if (position.long) {
+                longDeposits -= position.collateral;
+                longOpenInterestInTokens -= position.size;
+            } else {
+                shortDeposits -= position.collateral;
+                shortOpenInterestInTokens -= position.size;
+            }
+
+            delete positions[msg.sender];
+            _asset.safeTransfer(msg.sender, pendingValue);
+        } else {
+            if (pnl >= position.collateral) {
+                _liquidatePosition(msg.sender);
+            } else {
+                uint256 newCollateral = position.collateral - pnl;
+                uint256 newLeverage = calculateLeverage(newCollateral, position.size);
+
+                if (newLeverage <= MAX_LEVERAGE) {
+                    require(maxUtilization() >= newCollateral, "After-withdraw liquidity cannot exceed max utilization");
+
+                    if (position.long) {
+                        longDeposits -= position.collateral;
+                        longOpenInterestInTokens -= position.size;
+                    } else {
+                        shortDeposits -= position.collateral;
+                        shortOpenInterestInTokens -= position.size;
+                    }
+
+                    delete positions[msg.sender];
+                    _asset.safeTransfer(msg.sender, newCollateral);
+                } else {
+                    _liquidatePosition(msg.sender);
+                }
+            }
+        }
+    }
+
+    function _liquidatePosition(address trader) internal {
+        Position storage position = positions[trader];
+
+        if (position.long) {
+            longDeposits -= position.collateral;
+            longOpenInterestInTokens -= position.size;
+        } else {
+            shortDeposits -= position.collateral;
+            shortOpenInterestInTokens -= position.size;
+        }
+
+        delete positions[msg.sender];
+    }
+
     function increaseCollateral(uint256 valueToIncrease) external {
-	require(_asset.balanceOf(msg.sender) >= valueToIncrease, "Insufficient asset balance");
+        require(_asset.balanceOf(msg.sender) >= valueToIncrease, "Insufficient asset balance");
 
-	Position storage position = positions[msg.sender];
-	position.collateral += valueToIncrease;
+        Position storage position = positions[msg.sender];
+        position.collateral += valueToIncrease;
 
-	uint256 newLeverage = calculateLeverage(position.collateral, position.size);
-	require(newLeverage <= MAX_LEVERAGE, "Leverage cannot exceed 15x");
+        uint256 newLeverage = calculateLeverage(position.collateral, position.size);
+        require(newLeverage <= MAX_LEVERAGE, "Leverage cannot exceed 15x");
 
-	if (position.long) {
-	    longDeposits += valueToIncrease;
-	} else {
-	    shortDeposits += valueToIncrease;
-	}
+        if (position.long) {
+            longDeposits += valueToIncrease;
+        } else {
+            shortDeposits += valueToIncrease;
+        }
 
-	_asset.safeTransferFrom(msg.sender, address(this), valueToIncrease);
+        _asset.safeTransferFrom(msg.sender, address(this), valueToIncrease);
     }
 
     function decreaseCollateral(uint256 value) external {
-	require(totalAssets() >= value, "Insufficient liquidity");
+        require(totalAssets() >= value, "Insufficient liquidity");
 
-	Position storage position = positions[msg.sender];
-	require(value <= position.collateral, "Cannot decrease more than collateral");
+        Position storage position = positions[msg.sender];
+        require(value <= position.collateral, "Cannot decrease more than collateral");
 
-	position.collateral -= value;
-	uint256 newLeverage = calculateLeverage(position.collateral, position.size);
-	require(newLeverage <= MAX_LEVERAGE, "Leverage cannot exceed 15x");
+        position.collateral -= value;
+        uint256 newLeverage = calculateLeverage(position.collateral, position.size);
+        require(newLeverage <= MAX_LEVERAGE, "Leverage cannot exceed 15x");
 
-	if (position.long) {
-	    longDeposits -= value;
-	} else {
-	    shortDeposits -= value;
-	}
+        if (position.long) {
+            longDeposits -= value;
+        } else {
+            shortDeposits -= value;
+        }
 
-	_asset.safeTransfer(msg.sender, value);
+        _asset.safeTransfer(msg.sender, value);
     }
 
     function collateralOf(address target) external view returns (uint256) {
-	Position memory position = positions[target];
-	return position.collateral;
+        Position memory position = positions[target];
+        return position.collateral;
     }
 }
