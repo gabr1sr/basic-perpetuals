@@ -12,11 +12,11 @@ contract Vault is ERC4626 {
     uint256 internal constant _MAX_UTILIZATION_RATE = 80;
 
     address internal immutable _underlying;
-    
+
     uint8 internal immutable _decimals;
 
     string internal _name;
-    
+
     string internal _symbol;
 
     bool public immutable useVirtualShares;
@@ -24,45 +24,45 @@ contract Vault is ERC4626 {
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                       CONSTRUCTOR                          */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-    
+
     constructor(address underlying_, string memory name_, string memory symbol_, bool useVirtualShares_) {
-	_underlying = underlying_;
-	
-	(bool success, uint8 result) = _tryGetAssetDecimals(underlying_);
-	_decimals = success ? result : _DEFAULT_UNDERLYING_DECIMALS;
+        _underlying = underlying_;
 
-	_name = name_;
-	_symbol = symbol_;
+        (bool success, uint8 result) = _tryGetAssetDecimals(underlying_);
+        _decimals = success ? result : _DEFAULT_UNDERLYING_DECIMALS;
 
-	useVirtualShares = useVirtualShares_;
+        _name = name_;
+        _symbol = symbol_;
+
+        useVirtualShares = useVirtualShares_;
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                       ERC20 METADATA                       */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-    
+
     function name() public view override returns (string memory) {
-	return _name;
+        return _name;
     }
 
     function symbol() public view override returns (string memory) {
-	return _symbol;
+        return _symbol;
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                     ERC4626 CONSTANTS                      */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-    
+
     function asset() public view override returns (address) {
-	return _underlying;
+        return _underlying;
     }
 
     function _underlyingDecimals() internal view override returns (uint8) {
-	return _decimals;
+        return _decimals;
     }
 
     function _useVirtualShares() internal view override returns (bool) {
-	return useVirtualShares;
+        return useVirtualShares;
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -70,6 +70,6 @@ contract Vault is ERC4626 {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     function maxUtilization() public view returns (uint256 assets) {
-	assets = FixedPointMathLib.fullMulDiv(totalAssets(), _MAX_UTILIZATION_RATE, 100);
+        assets = FixedPointMathLib.fullMulDiv(totalAssets(), _MAX_UTILIZATION_RATE, 100);
     }
 }
