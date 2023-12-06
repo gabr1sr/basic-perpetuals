@@ -87,9 +87,9 @@ contract Positions is Ownable {
         view
         returns (uint256 leverage)
     {
-        (, uint256 collateralAsPrice) = _convertPrice(collateral, collateralAddress);
-        (, uint256 sizeAsPrice) = _convertPrice(size, sizeAddress);
-        leverage = (sizeAsPrice / collateralAsPrice);
+        (uint8 collateralPriceDecimals, uint256 collateralAsPrice) = _convertPrice(collateral, collateralAddress);
+        (uint8 sizePriceDecimals, uint256 sizeAsPrice) = _convertPrice(size, sizeAddress);
+        leverage = (sizeAsPrice / collateralAsPrice) / 10 ** (sizePriceDecimals - collateralPriceDecimals - 2);
     }
 
     function _convertPrice(uint256 amount, address tokenAddress)

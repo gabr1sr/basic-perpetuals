@@ -83,7 +83,7 @@ contract PositionsTest is Test {
         console.log("Size * Size Price:", sizeAsPrice); // 16 decimals (8 + 8)
 
         // Leverage
-        uint256 expectedLeverage = (sizeAsPrice / collateralAsPrice);
+        uint256 expectedLeverage = (sizeAsPrice / collateralAsPrice); // 2 decimals (16 - 14)
         uint256 leverage = positions.calculateLeverage(collateral, size, address(usdcToken), address(wbtcToken));
 
         console.log("Expected Leverage:", expectedLeverage);
@@ -91,5 +91,37 @@ contract PositionsTest is Test {
 
         // Assertion
         assertEq(leverage, expectedLeverage); // 437 (4.37x)
+    }
+
+    function test_CalculateLeverage_wETH() public {
+	uint256 collateralDecimals = uint256(positions.getDecimals(address(usdcToken)));
+	uint256 sizeDecimals = uint256(positions.getDecimals(address(wethToken)));
+
+	uint256 collateral = 1_000 * (10 ** collateralDecimals);
+	uint256 size = 1 * (10 ** sizeDecimals);
+
+	uint256 collateralPrice = dataFeed.getPrice(address(usdcToken));
+	uint256 sizePrice = dataFeed.getPrice(address(wethToken));
+
+	uint256 collateralAsPrice = (collateral * collateralPrice);
+        uint256 sizeAsPrice = (size * sizePrice);
+
+        console.log("Collateral:", collateral); // 6
+        console.log("Collateral Price:", collateralPrice); // 8
+        console.log("Collateral * Collateral Price:", collateralAsPrice); // 14
+
+        console.log("Size:", size); // 18
+        console.log("Size Price:", sizePrice); // 8
+        console.log("Size * Size Price:", sizeAsPrice); // 26
+
+        uint256 expectedLeverage = (sizeAsPrice / collateralAsPrice) / 10 ** (sizeDecimals - collateralDecimals - 2);
+        uint256 leverage = positions.calculateLeverage(collateral, size, address(usdcToken), address(wethToken));
+
+	console.log("Expected Leverage:", expectedLeverage);
+	console.log("Leverage:", leverage);
+	
+	assertEq(leverage, expectedLeverage); // 225 (2.25x)
+
+	
     }
 }
