@@ -4,15 +4,23 @@ pragma solidity 0.8.23;
 import {Ownable} from "solady/src/auth/Ownable.sol";
 import {Vault} from "./Vault.sol";
 import {DataFeed} from "./DataFeed.sol";
+import {SafeTransferLib} from "solady/src/utils/SafeTransferLib.sol";
+import {console} from "forge-std/console.sol";
 
 interface Token {
     function decimals() external view returns (uint8);
 }
 
 contract Positions is Ownable {
+    uint256 constant private _MAX_LEVERAGE = 1500;
+    
     mapping(address tokenAddress => uint8 decimals) private _decimals;
 
     mapping(address tokenAddress => address vaultAddress) private _tokenVaults;
+
+    mapping(uint256 positionId => Position position) private _positions;
+
+    mapping(address userAddress => mapping(uint256 index => uint256 positionId)) private _userPositionIds;
 
     DataFeed private _dataFeed;
 
@@ -45,6 +53,16 @@ contract Positions is Ownable {
     error NoTokenVaultAddress();
 
     error NoTokenDecimals();
+
+    error CollateralIsZero();
+
+    error SizeIsZero();
+
+    error InsufficientBalance();
+
+    error InvalidToken();
+
+    error MaxLeverageExceed();
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                       CONSTRUCTOR                          */
@@ -81,7 +99,30 @@ contract Positions is Ownable {
     /*                        PERPETUALS                          */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    // TODO: make leverage always have 2 decimals
+    function createPosition(uint256 collateral, uint256 size, address collateralAddress, address sizeAddress) public view {
+	if (collateral == 0) _revert(0xb4f18b02); // revert CollateralIsZero();
+
+	if (size == 0) _revert(0x3789a26b); // revert SizeIsZero();
+
+	Vault vault = getTokenVault(sizeAddress);
+
+	if (address(vault) == address(0) || collateralAddress == address(0) || sizeAddress == address(0)) _revert(0xc1ab6dc1); // revert InvalidToken();
+
+	if (SafeTransferLib.balanceOf(collateralAddress, msg.sender) >= collateral) _revert(0xf4d678b8); // revert InsufficientBalance();
+
+	uint256 leverage = calculateLeverage(collateral, size, collateralAddress, sizeAddress);
+	
+	if (leverage >= _MAX_LEVERAGE) _revert(0x9b49a84a); // revert MaxLeverageExceed();
+
+	// TODO: check if total open interest + `size * price` is lower than max utilization rate
+	// TODO: create long or short position
+	// TODO: increase `collateral` to (long|short)Deposit
+	// TODO: increate `size` to (long|short)OpenInterestInTokens
+	// TODO: add to `_positions` mapping and position ID to `_userPositionIds`
+	
+	SafeTransferLib.safeTransferFrom(collateralAddress, msg.sender, address(vault), collateral);
+    }
+    
     function calculateLeverage(uint256 collateral, uint256 size, address collateralAddress, address sizeAddress)
         public
         view

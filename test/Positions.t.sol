@@ -121,7 +121,25 @@ contract PositionsTest is Test {
 	console.log("Leverage:", leverage);
 	
 	assertEq(leverage, expectedLeverage); // 225 (2.25x)
+    }
 
-	
+    function test_CreateLongPosition_USDC_wBTC() public {
+        uint256 collateralDecimals = uint256(positions.getDecimals(address(usdcToken)));
+	uint256 sizeDecimals = uint256(positions.getDecimals(address(wbtcToken)));
+
+	uint256 collateral = 10_000 * (10 ** collateralDecimals);
+	uint256 size = 1 * (10 ** sizeDecimals);
+
+	positions.createPosition(collateral, size, address(usdcToken), address(wbtcToken));
+    }
+
+    function test_CreateLongPosition_USDC_wETH() public {
+        uint256 collateralDecimals = uint256(positions.getDecimals(address(usdcToken)));
+	uint256 sizeDecimals = uint256(positions.getDecimals(address(wethToken)));
+
+	uint256 collateral = 1_000 * (10 ** collateralDecimals);
+	uint256 size = 1 * (10 ** sizeDecimals);
+
+	positions.createPosition(collateral, size, address(usdcToken), address(wethToken));
     }
 }
